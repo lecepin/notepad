@@ -1,0 +1,15 @@
+{
+  "short_name": "备忘录",
+  "name": "很好用的备忘录",
+  "icons": [
+    {
+      "src": "512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
