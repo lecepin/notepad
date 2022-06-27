@@ -1,6 +1,12 @@
 import React from "react";
 import { Menu, Icon, Button, Layout, Tooltip, message, Modal } from "antd";
-import Editor from "for-editor";
+import { Editor } from "@toast-ui/react-editor";
+import chart from "@toast-ui/editor-plugin-chart";
+import codeSyntaxHighlight from "@toast-ui/editor-plugin-code-syntax-highlight";
+import colorSyntax from "@toast-ui/editor-plugin-color-syntax";
+import tableMergedCell from "@toast-ui/editor-plugin-table-merged-cell";
+import uml from "@toast-ui/editor-plugin-uml";
+
 import IndexDBWrapper from "indexdbwrapper";
 import * as utils from "./utils";
 import "./App.less";
@@ -12,26 +18,26 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      editorContent: "",
       dbNotepads: [],
       notepadIndex: 0,
       menuKey: ["0"],
       editorPreview: false,
       editKey: 0, // 用于强制更新
     };
+    this.editorContent = "";
   }
 
   componentDidMount() {
     window.addEventListener("beforeunload", (e) => {
-      const { dbNotepads, notepadIndex, editorContent } = this.state;
+      const { dbNotepads, notepadIndex } = this.state;
       var confirmationMessage = "o/";
       if (
         dbNotepads[notepadIndex] &&
-        editorContent != dbNotepads[notepadIndex].value.content
+        this.editorContent != dbNotepads[notepadIndex].value.content
       ) {
         this.confirmSaveData({
           id: dbNotepads[notepadIndex].primaryKey,
-          content: editorContent,
+          content: this.editorContent,
           modifyTime: Date.now(),
         });
         (e || window.event).returnValue = confirmationMessage;
@@ -104,73 +110,31 @@ class App extends React.Component {
           }
         }
       }
-    });
 
-    document.addEventListener("paste", this.pasteToUpload.bind(this));
-    document.addEventListener("drop", this.dropToUpload.bind(this));
-    document.ondragover = (e) => {
-      e.preventDefault();
-    };
+      if ((e.ctrlKey || e.metaKey) && e.keyCode == 83) {
+        // ctrl + s 保存
+        e.preventDefault();
+        this.handleEditorSaveOnChange();
+      }
+    });
 
     this.getAllData();
   }
 
-  pasteToUpload({ clipboardData: { items } }) {
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf("image") !== -1) {
-        this.uploadImg(items[i].getAsFile());
-        break;
-      }
-    }
-  }
-
-  dropToUpload(e) {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-
-    if (file && file.type.indexOf("image/") > -1) {
-      this.uploadImg(file);
-    }
-  }
-
-  uploadImg(file) {
-    const domArea = document.querySelector(".for-editor-content textarea");
-    const data = new FormData();
-    data.append("img", file);
-
-    if (this.state.editorPreview || !domArea) {
-      return;
-    }
-
-    return fetch("./update-img", {
-      method: "post",
-      body: data,
-    })
-      .then((data) => data.json())
-      .then((data) => {
-        const value = utils.insertTextValue(domArea, `![](${data.name})`);
-        this.setState({
-          editorContent: value,
-        });
-      });
-  }
-
   handleEditorOnChange(value) {
-    this.setState({
-      editorContent: value,
-    });
+    this.editorContent = this.ref.getInstance().getMarkdown();
   }
 
   async handleAddBtnOnClick() {
-    const { notepadIndex, dbNotepads, editorContent } = this.state;
+    const { notepadIndex, dbNotepads } = this.state;
     if (
       dbNotepads[notepadIndex] &&
-      editorContent != dbNotepads[notepadIndex].value.content
+      this.editorContent != dbNotepads[notepadIndex].value.content
     ) {
       this.confirmSaveData(
         {
           id: dbNotepads[notepadIndex].primaryKey,
-          content: editorContent,
+          content: this.editorContent,
           modifyTime: Date.now(),
         },
         async () => {
@@ -180,7 +144,6 @@ class App extends React.Component {
               addTime: time,
               modifyTime: time,
               content: "",
-              editorPreview: true,
               editKey: Date.now(),
             });
             this.getAllData();
@@ -203,46 +166,48 @@ class App extends React.Component {
   }
 
   handleLeftMenuOnClick(value) {
-    const { notepadIndex, dbNotepads, editorContent } = this.state;
+    const { notepadIndex, dbNotepads } = this.state;
 
-    if (editorContent != dbNotepads[notepadIndex].value.content) {
+    if (this.editorContent != dbNotepads[notepadIndex].value.content) {
       this.confirmSaveData(
         {
           id: dbNotepads[notepadIndex].primaryKey,
-          content: editorContent,
+          content: this.editorContent,
           modifyTime: Date.now(),
         },
-        () =>
+        () => {
+          this.editorContent = dbNotepads[+value.key].value.content;
           this.setState({
             notepadIndex: +value.key,
             menuKey: [value.key],
-            editorContent: dbNotepads[+value.key].value.content,
+
             editorPreview: !!dbNotepads[+value.key].value.content,
             editKey: Date.now(),
-          })
+          });
+        }
       );
       return;
     }
 
+    this.editorContent = dbNotepads[+value.key].value.content;
+
     this.setState({
       notepadIndex: +value.key,
       menuKey: [value.key],
-      editorContent: dbNotepads[+value.key].value.content,
-      editorPreview: !!dbNotepads[+value.key].value.content,
       editKey: Date.now(),
     });
   }
 
-  async handleEditorSaveOnChange(value) {
+  async handleEditorSaveOnChange() {
     const { notepadIndex, dbNotepads } = this.state;
 
-    if (!this.db) {
+    if (!this.db || !this.editorContent) {
       return;
     }
 
     await this.db.put(tableNotepad, {
       id: dbNotepads[notepadIndex].primaryKey,
-      content: utils.utf8_to_b64(value),
+      content: utils.utf8_to_b64(this.editorContent),
       modifyTime: Date.now(),
     });
     message.success("保存成功！", 1);
@@ -281,9 +246,10 @@ class App extends React.Component {
     const result = {
       dbNotepads,
       menuKey: ["0"],
-      editorContent: dbNotepads[0] ? dbNotepads[0].value.content : "",
       notepadIndex: 0,
     };
+    this.editorContent = dbNotepads[0] ? dbNotepads[0].value.content : "";
+
     if (updatePreview) {
       result.editorPreview = dbNotepads[0] && dbNotepads[0].value.content;
       result.editKey = Date.now();
@@ -310,14 +276,9 @@ class App extends React.Component {
   }
 
   render() {
-    const {
-      editorContent,
-      dbNotepads,
-      notepadIndex,
-      menuKey,
-      editorPreview,
-      editKey,
-    } = this.state;
+    const { dbNotepads, notepadIndex, menuKey, editKey } = this.state;
+
+    const editorContent = this.editorContent;
 
     return (
       <Layout className="app">
@@ -347,27 +308,15 @@ class App extends React.Component {
             </div>
             {dbNotepads.length > 0 && (
               <Editor
-                height="calc(100vh - 60px)"
-                className="app-editor"
-                value={editorContent}
-                preview={editorPreview}
-                toolbar={{
-                  h1: true,
-                  h2: true,
-                  h3: true,
-                  h4: true,
-                  img: true,
-                  link: true,
-                  code: true,
-                  preview: true,
-                  expand: true,
-                  save: true,
-                  subfield: true,
-                }}
                 key={editKey}
-                onChange={(value) => this.handleEditorOnChange(value)}
-                onSave={(e) => this.handleEditorSaveOnChange(e)}
-                addImg={(file) => this.uploadImg(file)}
+                ref={(_) => (this.ref = _)}
+                language="zh-Hans"
+                initialValue={editorContent}
+                height="calc(100vh - 60px)"
+                initialEditType="wysiwyg"
+                useCommandShortcut={true}
+                plugins={[colorSyntax, chart, codeSyntaxHighlight, uml]}
+                onChange={this.handleEditorOnChange.bind(this)}
               />
             )}
             <div className="app-copyright">
