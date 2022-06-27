@@ -314,7 +314,7 @@ class App extends React.Component {
                 initialValue={editorContent}
                 height="calc(100vh - 60px)"
                 initialEditType="wysiwyg"
-                useCommandShortcut={true}
+                useCommandShortcut={false}
                 plugins={[colorSyntax, chart, codeSyntaxHighlight, uml]}
                 onChange={this.handleEditorOnChange.bind(this)}
               />
