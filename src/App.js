@@ -2,7 +2,7 @@ import React from "react";
 import { Menu, Icon, Button, Layout, Tooltip, message, Modal } from "antd";
 import { Editor } from "@toast-ui/react-editor";
 import chart from "@toast-ui/editor-plugin-chart";
-import codeSyntaxHighlight from "@toast-ui/editor-plugin-code-syntax-highlight";
+import codeSyntaxHighlight from "@toast-ui/editor-plugin-code-syntax-highlight/dist/toastui-editor-plugin-code-syntax-highlight-all.js";
 import colorSyntax from "@toast-ui/editor-plugin-color-syntax";
 import tableMergedCell from "@toast-ui/editor-plugin-table-merged-cell";
 import uml from "@toast-ui/editor-plugin-uml";
@@ -314,7 +314,7 @@ class App extends React.Component {
                 initialValue={editorContent}
                 height="calc(100vh - 60px)"
                 initialEditType="wysiwyg"
-                useCommandShortcut={false}
+                // useCommandShortcut={false}
                 plugins={[colorSyntax, chart, codeSyntaxHighlight, uml]}
                 onChange={this.handleEditorOnChange.bind(this)}
               />
