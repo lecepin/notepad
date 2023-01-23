@@ -318,7 +318,12 @@ class App extends React.Component {
       okText: "推送",
       cancelText: "取消",
       onOk: async () => {
-        const dbData = await this.getAllData({ isGetData: true });
+        const dbData = ((await this.getAllData({ isGetData: true })) || []).map(
+          (item) => ({
+            ...item,
+            content: item.content.replace(/\+/g, "%2B"),
+          })
+        );
 
         const hide = message.loading("推送中…", 0);
 

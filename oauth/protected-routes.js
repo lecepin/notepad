@@ -28,7 +28,7 @@ app.use("/api/protected", jwtCheck, requireScope("full_access"));
 
 app.post("/api/protected/push-to-server", function (req, res) {
   try {
-    const data = JSON.parse(req.body.data);
+    const data = JSON.parse(req.body.data.replace(/%2B/g, "+"));
 
     fs.writeFileSync(
       __dirname + "/db/" + req.user.username + ".json",
