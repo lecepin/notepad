@@ -25,7 +25,7 @@ const { Header, Sider, Content } = Layout;
 const version = 4;
 const tableNotepad = "notepad";
 
-const HOST = "http://localhost:3001";
+const HOST = "";
 
 class App extends React.Component {
   constructor(props) {
