@@ -43,12 +43,15 @@ class App extends React.Component {
   }
 
   componentDidMount() {
-    window.addEventListener("beforeunload", (e) => {
+    window.addEventListener("beforeunload", async (e) => {
       const { dbNotepads, notepadIndex } = this.state;
       var confirmationMessage = "o/";
+
+      const dbEditorContent = utils.b64_to_utf8((await this.getContentById(dbNotepads[notepadIndex].primaryKey)).content);
+
       if (
         dbNotepads[notepadIndex] &&
-        this.editorContent != dbNotepads[notepadIndex].value.content
+        this.editorContent != dbEditorContent
       ) {
         this.confirmSaveData({
           id: dbNotepads[notepadIndex].primaryKey,
@@ -127,7 +130,7 @@ class App extends React.Component {
       }
     });
 
-    this.getAllData();
+    this.getAllTitle();
 
     fetch(HOST + "/api/valid")
       .then((res) => res.json())
@@ -149,9 +152,11 @@ class App extends React.Component {
 
   async handleAddBtnOnClick() {
     const { notepadIndex, dbNotepads } = this.state;
+    const dbEditorContent = utils.b64_to_utf8((await this.getContentById(dbNotepads[notepadIndex].primaryKey)).content);
+
     if (
       dbNotepads[notepadIndex] &&
-      this.editorContent != dbNotepads[notepadIndex].value.content
+      this.editorContent != dbEditorContent
     ) {
       this.confirmSaveData(
         {
@@ -168,7 +173,7 @@ class App extends React.Component {
               content: "",
               id: v4(),
             });
-            this.getAllData();
+            this.getAllTitle();
           }
         }
       );
@@ -182,14 +187,16 @@ class App extends React.Component {
         content: "",
         id: v4(),
       });
-      this.getAllData();
+      this.getAllTitle();
     }
   }
 
-  handleLeftMenuOnClick(value) {
+  async handleLeftMenuOnClick(value) {
     const { notepadIndex, dbNotepads } = this.state;
+    const dbEditorContent = utils.b64_to_utf8((await this.getContentById(dbNotepads[notepadIndex].primaryKey)).content);
 
-    if (this.editorContent != dbNotepads[notepadIndex].value.content) {
+
+    if (this.editorContent != dbEditorContent) {
       this.confirmSaveData(
         {
           id: dbNotepads[notepadIndex].primaryKey,
@@ -210,7 +217,7 @@ class App extends React.Component {
       return;
     }
 
-    this.editorContent = dbNotepads[+value.key].value.content;
+    this.editorContent = utils.b64_to_utf8((await this.getContentById(dbNotepads[+value.key].primaryKey)).content);
 
     this.setState({
       notepadIndex: +value.key,
@@ -232,7 +239,7 @@ class App extends React.Component {
       modifyTime: Date.now(),
     });
     message.success("保存成功！", 1);
-    this.getAllData({ updatePreview: false });
+    this.getAllTitle({ updatePreview: false });
   }
 
   handleBtnDelOnClick() {
@@ -247,9 +254,9 @@ class App extends React.Component {
       onOk: async () => {
         await this.db.delete(tableNotepad, dbNotepads[notepadIndex].primaryKey);
         message.success("删除成功！", 1);
-        this.getAllData();
+        this.getAllTitle();
       },
-      onCancel() {},
+      onCancel() { },
     });
   }
 
@@ -283,6 +290,46 @@ class App extends React.Component {
     this.setState(result);
   }
 
+  async getAllTitle({ updatePreview = true, isGetData } = {}) {
+    let dbNotepads = await this.db.getAllMatching(tableNotepad, {
+      index: "modifyTime",
+      includeKeys: !0,
+      direction: "prev",
+    });
+
+    if (isGetData) {
+      return dbNotepads?.map((item) => item.value);
+    }
+
+    dbNotepads = dbNotepads.map((item) => ({
+      ...item,
+      value: { ...item.value, content: utils.b64_to_utf8(item.value.content).substring(0, 20) },
+    }));
+
+    const result = {
+      dbNotepads,
+      menuKey: ["0"],
+      notepadIndex: 0,
+    };
+
+    if (dbNotepads[0]) {
+      this.editorContent = utils.b64_to_utf8((await this.getContentById(dbNotepads[0].primaryKey)).content);
+    } else {
+      this.editorContent = "";
+    }
+
+    if (updatePreview) {
+      result.editorPreview = dbNotepads[0] && dbNotepads[0].value.content;
+      result.editKey = Date.now();
+    }
+    this.setState(result);
+  }
+
+  async getContentById(id) {
+    const data = await this.db.get(tableNotepad, id);
+    return data;
+  }
+
   confirmSaveData(data, onCancel = (f) => f) {
     Modal.confirm({
       title: "提示",
@@ -295,7 +342,7 @@ class App extends React.Component {
           content: utils.utf8_to_b64(data.content),
         });
         message.success("保存成功！", 1);
-        this.getAllData({ updatePreview: false });
+        this.getAllTitle({ updatePreview: false });
       },
       onCancel,
     });
@@ -474,9 +521,9 @@ class App extends React.Component {
               <div className="app-modify-time">
                 {dbNotepads.length > 0
                   ? utils.formatDate(
-                      dbNotepads[notepadIndex].value.modifyTime,
-                      "yyyy-MM-dd, hh:mm:ss"
-                    )
+                    dbNotepads[notepadIndex].value.modifyTime,
+                    "yyyy-MM-dd, hh:mm:ss"
+                  )
                   : ""}
               </div>
               {apiValid ? (
@@ -549,29 +596,34 @@ class App extends React.Component {
                   Lecepin
                 </a>
               </div>
-              <Tooltip placement="left" title="添加">
-                <Button
-                  type="primary"
-                  shape="circle"
-                  icon="plus"
-                  size="large"
-                  className="app-btn-add"
-                  onClick={() => this.handleAddBtnOnClick()}
-                />
-              </Tooltip>
+              <div className="levitate">
+                <div>
+                  <Tooltip placement="left" title="添加">
+                    <Button
+                      type="primary"
+                      shape="circle"
+                      icon="plus"
+                      size="large"
+                      className="app-btn-add"
+                      onClick={() => this.handleAddBtnOnClick()}
+                    />
+                  </Tooltip>
 
-              {dbNotepads.length > 0 && (
-                <Tooltip placement="left" title="删除">
-                  <Button
-                    type="danger"
-                    shape="circle"
-                    icon="delete"
-                    size="large"
-                    className="app-btn-del"
-                    onClick={() => this.handleBtnDelOnClick()}
-                  />
-                </Tooltip>
-              )}
+                  {dbNotepads.length > 0 && (
+                    <Tooltip placement="left" title="删除">
+                      <Button
+                        type="danger"
+                        shape="circle"
+                        icon="delete"
+                        size="large"
+                        className="app-btn-del"
+                        onClick={() => this.handleBtnDelOnClick()}
+                      />
+                    </Tooltip>
+                  )}</div>
+
+              </div>
+
               {dbNotepads.length == 0 && (
                 <div className="app-no-data">
                   点击右下角按钮，进行备忘录添加~~
@@ -584,7 +636,7 @@ class App extends React.Component {
           <Modal
             title="登陆"
             visible
-            onOk={() => {}}
+            onOk={() => { }}
             onCancel={() => {
               this.setState({
                 needLogin: false,
