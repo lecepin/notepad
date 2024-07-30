@@ -20,12 +20,36 @@ import { v4 } from "uuid";
 
 import IndexDBWrapper from "indexdbwrapper";
 import * as utils from "./utils";
+import SelectGhost from "./SelectGhost";
 import "./App.less";
 const { Header, Sider, Content } = Layout;
 const version = 4;
 const tableNotepad = "notepad";
 
 const HOST = "";
+
+function replaceImagesWithStyle(text, src, newWidth) {
+  // 正则表达式匹配 Markdown 格式的图片链接
+  const markdownImgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  // 正则表达式匹配 HTML 格式的图片标签
+  const htmlImgRegex = /<img\s+[^>]*src="([^"]+)"[^>]*>/g;
+
+  // 替换 Markdown 格式的图片链接为自闭合的HTML标签，仅当src匹配时
+  let newText = text.replace(markdownImgRegex, (match, altText, currentSrc) => {
+    return currentSrc === src
+      ? `<img src="${src}" alt="${altText}" style="width:${newWidth}" />`
+      : match;
+  });
+
+  // 替换 HTML 格式的图片标签，仅当src匹配时
+  newText = newText.replace(htmlImgRegex, (match, currentSrc) => {
+    return currentSrc === src
+      ? `<img src="${src}" style="width:${newWidth}" />`
+      : match;
+  });
+
+  return newText;
+}
 
 class App extends React.Component {
   constructor(props) {
@@ -40,24 +64,47 @@ class App extends React.Component {
       apiValid: false,
     };
     this.editorContent = "";
+    this.refSelectGhost = null;
   }
 
   componentDidMount() {
+    setTimeout(() => {
+      document.addEventListener(
+        "click",
+        (e) => {
+          const target = e.target;
+
+          if (target.closest("div.ww-mode")) {
+            if (target.tagName === "IMG") {
+              e.stopPropagation();
+              e.preventDefault();
+              this.refSelectGhost.setNode({ el: target });
+            } else {
+              this.refSelectGhost.setNode(null);
+            }
+          }
+        },
+        true
+      );
+    }, 1000);
+
     window.addEventListener("beforeunload", async (e) => {
+      e.preventDefault();
       const { dbNotepads, notepadIndex } = this.state;
       var confirmationMessage = "o/";
 
-      const dbEditorContent = utils.b64_to_utf8((await this.getContentById(dbNotepads[notepadIndex].primaryKey)).content);
-
-      if (
-        dbNotepads[notepadIndex] &&
-        this.editorContent != dbEditorContent
-      ) {
-        this.confirmSaveData({
-          id: dbNotepads[notepadIndex].primaryKey,
-          content: this.editorContent,
-          modifyTime: Date.now(),
-        });
+      const dbEditorContent = utils.b64_to_utf8(
+        (await this.getContentById(dbNotepads[notepadIndex].primaryKey)).content
+      );
+      if (dbNotepads[notepadIndex] && this.editorContent != dbEditorContent) {
+        this.confirmSaveData(
+          {
+            id: dbNotepads[notepadIndex].primaryKey,
+            content: this.editorContent,
+            modifyTime: Date.now(),
+          },
+          () => {}
+        );
         (e || window.event).returnValue = confirmationMessage;
         return confirmationMessage;
       } else {
@@ -152,12 +199,11 @@ class App extends React.Component {
 
   async handleAddBtnOnClick() {
     const { notepadIndex, dbNotepads } = this.state;
-    const dbEditorContent = utils.b64_to_utf8((await this.getContentById(dbNotepads[notepadIndex].primaryKey)).content);
+    const dbEditorContent = utils.b64_to_utf8(
+      (await this.getContentById(dbNotepads[notepadIndex].primaryKey)).content
+    );
 
-    if (
-      dbNotepads[notepadIndex] &&
-      this.editorContent != dbEditorContent
-    ) {
+    if (dbNotepads[notepadIndex] && this.editorContent != dbEditorContent) {
       this.confirmSaveData(
         {
           ...dbNotepads[notepadIndex].value,
@@ -193,8 +239,9 @@ class App extends React.Component {
 
   async handleLeftMenuOnClick(value) {
     const { notepadIndex, dbNotepads } = this.state;
-    const dbEditorContent = utils.b64_to_utf8((await this.getContentById(dbNotepads[notepadIndex].primaryKey)).content);
-
+    const dbEditorContent = utils.b64_to_utf8(
+      (await this.getContentById(dbNotepads[notepadIndex].primaryKey)).content
+    );
 
     if (this.editorContent != dbEditorContent) {
       this.confirmSaveData(
@@ -217,7 +264,9 @@ class App extends React.Component {
       return;
     }
 
-    this.editorContent = utils.b64_to_utf8((await this.getContentById(dbNotepads[+value.key].primaryKey)).content);
+    this.editorContent = utils.b64_to_utf8(
+      (await this.getContentById(dbNotepads[+value.key].primaryKey)).content
+    );
 
     this.setState({
       notepadIndex: +value.key,
@@ -256,7 +305,7 @@ class App extends React.Component {
         message.success("删除成功！", 1);
         this.getAllTitle();
       },
-      onCancel() { },
+      onCancel() {},
     });
   }
 
@@ -303,7 +352,10 @@ class App extends React.Component {
 
     dbNotepads = dbNotepads.map((item) => ({
       ...item,
-      value: { ...item.value, content: utils.b64_to_utf8(item.value.content).substring(0, 20) },
+      value: {
+        ...item.value,
+        content: utils.b64_to_utf8(item.value.content).substring(0, 20),
+      },
     }));
 
     const result = {
@@ -313,7 +365,9 @@ class App extends React.Component {
     };
 
     if (dbNotepads[0]) {
-      this.editorContent = utils.b64_to_utf8((await this.getContentById(dbNotepads[0].primaryKey)).content);
+      this.editorContent = utils.b64_to_utf8(
+        (await this.getContentById(dbNotepads[0].primaryKey)).content
+      );
     } else {
       this.editorContent = "";
     }
@@ -501,8 +555,34 @@ class App extends React.Component {
 
     return (
       <>
+        <SelectGhost
+          ref={(_) => {
+            this.refSelectGhost = _;
+          }}
+          canvasDomId=".ww-mode"
+          canResize
+          // onDragEnd={({ width }, { el: { src } }) => {
+          // this.editorContent = replaceImagesWithStyle(
+          //   this.editorContent,
+          //   src,
+          //   width
+          // );
+          // this.ref.getInstance().setMarkdown(this.editorContent);
+          // }}
+        />
         <Layout className="app">
-          <Sider className="app-left-side">
+          <Sider
+            collapsible
+            collapsedWidth={0}
+            zeroWidthTriggerStyle={{
+              bottom: 76,
+              top: "unset",
+              zIndex: 9999,
+              width: 21,
+              right: -21,
+            }}
+            className="app-left-side"
+          >
             <Menu
               mode="inline"
               theme="dark"
@@ -521,9 +601,9 @@ class App extends React.Component {
               <div className="app-modify-time">
                 {dbNotepads.length > 0
                   ? utils.formatDate(
-                    dbNotepads[notepadIndex].value.modifyTime,
-                    "yyyy-MM-dd, hh:mm:ss"
-                  )
+                      dbNotepads[notepadIndex].value.modifyTime,
+                      "yyyy-MM-dd, hh:mm:ss"
+                    )
                   : ""}
               </div>
               {apiValid ? (
@@ -585,7 +665,13 @@ class App extends React.Component {
                   height="calc(100vh - 60px)"
                   initialEditType="wysiwyg"
                   // useCommandShortcut={false}
-                  plugins={[colorSyntax, chart, codeSyntaxHighlight, uml]}
+                  plugins={[
+                    colorSyntax,
+                    chart,
+                    codeSyntaxHighlight,
+                    uml,
+                    tableMergedCell,
+                  ]}
                   onChange={this.handleEditorOnChange.bind(this)}
                 />
               )}
@@ -620,8 +706,8 @@ class App extends React.Component {
                         onClick={() => this.handleBtnDelOnClick()}
                       />
                     </Tooltip>
-                  )}</div>
-
+                  )}
+                </div>
               </div>
 
               {dbNotepads.length == 0 && (
@@ -636,7 +722,7 @@ class App extends React.Component {
           <Modal
             title="登陆"
             visible
-            onOk={() => { }}
+            onOk={() => {}}
             onCancel={() => {
               this.setState({
                 needLogin: false,
