@@ -17,9 +17,7 @@
   &-btn-add {
     width: 60px !important;
     height: 60px !important;
-    position: fixed;
-    bottom: 4.1em;
-    right: 1em;
+
     z-index: 999;
   }
 
@@ -34,9 +32,7 @@
   &-btn-del {
     width: 60px !important;
     height: 60px !important;
-    position: fixed;
-    bottom: 7.8em;
-    right: 1em;
+
     z-index: 999;
   }
 
@@ -44,7 +40,8 @@
     text-align: center;
   }
 
-  &-editor {}
+  &-editor {
+  }
 
   &-left-side {
     .ant-layout-sider-children {
@@ -73,8 +70,6 @@
       display: inline-block;
       // margin-left: 5px;
     }
-
-
   }
 
   &-sync {
@@ -87,14 +82,13 @@
     right: 0;
     padding: 0 20px;
 
-    &>svg {
+    & > svg {
       width: 20px;
     }
   }
 }
 
 @keyframes iconAnimate {
-
   0%,
   100% {
     transform: scale(1);
@@ -122,21 +116,31 @@
   position: fixed;
   bottom: 4.6em;
   right: 0;
-  height: 10.5em;
-  width: 10px;
   border: 1px solid #ccc;
   background-color: #ccc;
   border-right: 0;
   border-top-left-radius: 5px;
   border-bottom-left-radius: 5px;
   z-index: 999;
+  transition: all 0.3s;
+  width: 10px;
 
-  &>div {
-    display: none;
+  & > div {
+    transition: all 0.3s;
+    align-items: center;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1em;
+    padding: 1em;
+    overflow: hidden;
+    width: 0;
+    display: flex;
+    opacity: 0;
   }
 
-  &:hover>div {
-    display: block;
+  &:hover > div {
+    width: 100%;
+    opacity: 1;
   }
 
   &:hover {
@@ -144,6 +148,6 @@
   }
 }
 
-.ww-mode img{
+.ww-mode img {
   border: 1px solid #ccc;
 }

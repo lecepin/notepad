@@ -68,6 +68,9 @@ class App extends React.Component {
   }
 
   componentDidMount() {
+    window.putAllData = this.putAllData.bind(this);
+    window.outputAllData = this.outputAllData.bind(this);
+
     setTimeout(() => {
       document.addEventListener(
         "click",
@@ -199,32 +202,36 @@ class App extends React.Component {
 
   async handleAddBtnOnClick() {
     const { notepadIndex, dbNotepads } = this.state;
-    const dbEditorContent = utils.b64_to_utf8(
-      (await this.getContentById(dbNotepads[notepadIndex].primaryKey)).content
-    );
 
-    if (dbNotepads[notepadIndex] && this.editorContent != dbEditorContent) {
-      this.confirmSaveData(
-        {
-          ...dbNotepads[notepadIndex].value,
-          content: this.editorContent,
-          modifyTime: Date.now(),
-        },
-        async () => {
-          if (this.db) {
-            const time = Date.now();
-            await this.db.add(tableNotepad, {
-              addTime: time,
-              modifyTime: time,
-              content: "",
-              id: v4(),
-            });
-            this.getAllTitle();
-          }
-        }
+    if (dbNotepads.length > 0) {
+      const dbEditorContent = utils.b64_to_utf8(
+        (await this.getContentById(dbNotepads[notepadIndex].primaryKey)).content
       );
-      return;
+
+      if (dbNotepads[notepadIndex] && this.editorContent != dbEditorContent) {
+        this.confirmSaveData(
+          {
+            ...dbNotepads[notepadIndex].value,
+            content: this.editorContent,
+            modifyTime: Date.now(),
+          },
+          async () => {
+            if (this.db) {
+              const time = Date.now();
+              await this.db.add(tableNotepad, {
+                addTime: time,
+                modifyTime: time,
+                content: "",
+                id: v4(),
+              });
+              this.getAllTitle();
+            }
+          }
+        );
+        return;
+      }
     }
+
     if (this.db) {
       const time = Date.now();
       await this.db.add(tableNotepad, {
@@ -511,6 +518,28 @@ class App extends React.Component {
           });
       },
     });
+  }
+
+  putAllData(data) {
+    Promise.all(data.map((item) => this.db.put(tableNotepad, item)))
+      .then(() => {
+        message.success("填充成功");
+        this.getAllData();
+      })
+      .catch(() => {
+        message.error("填充失败");
+      });
+  }
+
+  async outputAllData() {
+    const dbData = ((await this.getAllData({ isGetData: true })) || []).map(
+      (item) => ({
+        ...item,
+        content: item.content.replace(/\+/g, "%2B"),
+      })
+    );
+
+    return dbData;
   }
 
   login() {
