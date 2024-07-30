@@ -3,8 +3,8 @@
   "name": "很好用的备忘录",
   "icons": [
     {
-      "src": "256.png",
-      "sizes": "256x256",
+      "src": "128.png",
+      "sizes": "128x128",
       "type": "image/png"
     }
   ],
